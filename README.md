@@ -20,19 +20,17 @@ To learn more about other pilots, visit [the R consortium R submission working g
 
 - Initial submission
 
-**TODO** Complete tagged release and draft cover letter. Below are placeholders.
-
-  + version: [v0.1.0](https://github.com/RConsortium/submissions-pilot2-to-fda/releases/tag/v0.1.0) 
+  + version: [v0.1.0](https://github.com/RConsortium/submissions-pilot2-to-fda/releases/tag/v0.1.0)
   + [Cover letter](https://github.com/RConsortium/submissions-pilot2-to-fda/blob/main/m1/us/cover-letter.pdf)
 
   
-## Re-run analysis 
+## Run Shiny Application
 
-**TODO** Move compiled ADRG report to this repository. Below are placeholders.
+To run the Pilot 2 Shiny application, you can follow the steps described in the
+[ADRG document](https://github.com/RConsortium/submissions-pilot2-to-fda/blob/main/m5/datasets/rconsortiumpilot2/analysis/adam/datasets/adrg.pdf) based on the
+[program saved in the module 5](https://github.com/RConsortium/submissions-pilot2-to-fda/tree/main/m5/datasets/rconsortiumpilot2/analysis/adam/programs).
 
-To re-run analysis, you can follow the steps described in the 
-[ADRG document](https://github.com/RConsortium/submissions-pilot2-to-fda/blob/main/m5/datasets/rconsortiumpilot1/analysis/adam/datasets/adrg.pdf) based on the 
-[program saved in the module 5](https://github.com/RConsortium/submissions-pilot2-to-fda/tree/main/m5/datasets/rconsortiumpilot1/analysis/adam/programs). 
+The application is also available online at [rconsortium.shinyapps.io/submissions-pilot2](https://rconsortium.shinyapps.io/submissions-pilot2/).
 
 ## Folder Structure 
 
