@@ -50,7 +50,7 @@ Content:
   Package: pilot2wrappers
   Type: Package
   Title: R Consortium R Submission Pilot 2
-  Version: 0.3.0
+  Version: 0.4.0
   Authors@R: c(
           person("Eric", "Nantz", email = "theRcast@gmail.com", role = c("aut", "cre")),
           person("Yilong", "Zhang", role = c("aut")),
@@ -61,7 +61,7 @@ Content:
           person("copyright", role = c("cph"))
          )
   Description: Insert Package Description. 
-  Depends: R (>= 3.6.0)
+  Depends: R (>= 4.1.0)
   License: GPL (>= 3)
   Imports: 
       config (>= 0.3.1),
@@ -93,8 +93,7 @@ Content:
       devtools,
       testthat,
       knitr,
-      rmarkdown,
-      covr
+      rmarkdown
   Encoding: UTF-8
   LazyData: true
   Roxygen: list(markdown = TRUE)  
@@ -176,18 +175,24 @@ Package: pilot2wrappers
 File: NEWS.md
 Format: text
 Content:
-  # pilot2 0.3.0
+  # pilot2wrappers 0.4.0
+  
+  - Ensure column width of efficacy table's 95% CI header is wide enough to fit in a single row
+  - Add missing footnotes to primary table
+  - Add new vignettes for ADRG as a [Quarto](https://quarto.org/) document (with HTML and PDF output) and cover letter as a R-Markdown document using the [`{pagedown}`](https://pagedown.rbind.io/#letter)  package.
+  
+  # pilot2wrappers 0.3.0
   
   - Enable support for using `{pkglite}` to create package bundle compliant with ECTD submission transfer standards
   - Fix display of tooltips in select modules by using the `{tippy}` R package
   - Add helper function `set_data_path` for the user to set the directory path to `.xpt` data files loaded into the application
   
-  # pilot2 0.2.0
+  # pilot2wrappers 0.2.0
   
   - Convert Shiny application to a package structure using [`{golem}`](https://thinkr-open.github.io/golem).
   - Incorporate the open-source [`{teal}`](https://insightsengineering.github.io/teal/main) package inside application to provide dynamic filters in all modules
   
-  # pilot2 0.1.0
+  # pilot2wrappers 0.1.0
   
   - Initial version.
   - Added a `NEWS.md` file to track changes to the package.
@@ -208,16 +213,26 @@ Content:
   
   ## Overview
   
+  The objective of the R Consortium R submission Pilot 2 Project is to test the concept that a Shiny application created with the R-language can be successfully bundled into a submission package and transferred successfully to FDA reviewers. The application was built using the source data sets and analyses contained in the R submission Pilot 1 Project, with materials available on the [RConsortium/submissions-pilot1](https://github.com/RConsortium/submissions-pilot1) repository, All submission materials and communications from this pilot are publicly available, with the aim of providing a working example for future R language based FDA submissions. This is a FDA-industry collaboration through the non-profit organization R consortium.
+  
+  While the intent of the project is to enable execution of the Shiny application in a reviewer's local R environment, a deployed version of the application is available in open access through the Shinyapps.io service at [rconsortium.shinyapps.io/submissions-pilot2](https://rconsortium.shinyapps.io/submissions-pilot2/).
+  
+  The [working group website](https://rconsortium.github.io/submissions-wg/).
+  
+  The [RConsortium/submissions-pilot2](https://github.com/RConsortium/submissions-pilot2) demonstrates an approach to organize a Shiny application as an R package.
+  
+  The [RConsortium/submissions-pilot2-to-fda](https://github.com/RConsortium/submissions-pilot2-to-fda)
+  repo demonstrates the eCTD submission package based on the [RConsortium/submissions-pilot2](https://github.com/RConsortium/submissions-pilot2) repo.  
+  
   ## Meeting Minutes
+  
   [Repo wiki](https://github.com/RConsortium/submissions-pilot2/wiki)
   
-  
   ## Installing `teal` :
+  
   Follow the link [here](https://github.com/insightsengineering/depository#readme)
   
   ## Running application
-  
-  More instructions to come, but you can run the app by doing the following:
   
   * Clone this repository to your local machine
   * Open the project within RStudio, and run `renv::restore()` if prompted to restore the `{renv}` package library
@@ -253,7 +268,7 @@ Format: text
 Content:
   default:
     golem_name: pilot2wrappers
-    golem_version: 0.0.0.9000
+    golem_version: 0.4.0
     app_prod: no
     adam_path: "datasets/adam"
   production:
@@ -1109,7 +1124,7 @@ Content:
       tags$br(),
       tags$hr(),
       fluidRow(
-        h6(tags$i("*Abbreviation: CI=Confidence Interval; LS=Least Squarses; SD=Standard Deviation"))
+        h6(tags$i("Abbreviations: CI=Confidence Interval; LS=Least Squarses; SD=Standard Deviation"))
       )
     )
   }
@@ -1196,10 +1211,12 @@ Content:
               "N","Mean (SD)",
               "N","Mean (SD)","LS Mean (95% CI)")
       colgr=c(1,2,2,3,3,4,4,4)
+      colwidths <- c(rep(100, 7), 150)
       colgrn=c("","Baseline","Week 20","Change from Baseline")
-      collist = lapply(1:ncol(apr0ancova1),function(xx) colDef(name=coln[xx]))
+      collist = purrr::map2(1:ncol(apr0ancova1), colwidths, ~{
+        colDef(name = coln[.x], minWidth = .y)
+      })
       names(collist) = names(apr0ancova1)
-   
       reactable(
         apr0ancova1,
         columns = collist,
@@ -1246,7 +1263,12 @@ Content:
   #' @importFrom shiny NS tagList uiOutput
   ui_t_primary <- function(id, datasets) {
     ns <- NS(id)
-    uiOutput(ns("table"))
+    tagList(
+      uiOutput(ns("table")),
+      p("[1] Based on Analysis of covariance (ANCOVA) model with treatment and site group as factors and baseline value as a covariate."),
+      p("[2] Test for a non-zero coefficient for treatment (dose) as a continuous variable."),
+      p("[3] Pairwise comparison with treatment as a categorical variable: p-values without adjustment for multiple comparisons.")
+    )
   }
   
   #' srv_t_primary Server Functions
