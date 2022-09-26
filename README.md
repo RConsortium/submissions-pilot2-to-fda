@@ -28,7 +28,7 @@ To learn more about other pilots, visit [the R consortium R submission working g
 
 To run the Pilot 2 Shiny application, you can follow the steps described in the
 [ADRG document](https://github.com/RConsortium/submissions-pilot2-to-fda/blob/main/m5/datasets/rconsortiumpilot2/analysis/adam/datasets/adrg.pdf) based on the
-[program saved in the module 5](https://github.com/RConsortium/submissions-pilot2-to-fda/tree/main/m5/datasets/rconsortiumpilot2/analysis/adam/programs).
+[program saved in the module 5](https://github.com/RConsortium/submissions-pilot2-to-fda/tree/main/m5/datasets/rconsortiumpilot2/analysis/adam/programs). A web version of the ADRG is also available at <http://rsubmission-draft.website-us-east-1.linodeobjects.com/>.
 
 The application is also available online at [rconsortium.shinyapps.io/submissions-pilot2](https://rconsortium.shinyapps.io/submissions-pilot2/).
 
