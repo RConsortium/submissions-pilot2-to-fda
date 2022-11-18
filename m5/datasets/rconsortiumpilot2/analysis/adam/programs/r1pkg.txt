@@ -50,7 +50,7 @@ Content:
   Package: pilot2wrappers
   Type: Package
   Title: R Consortium R Submission Pilot 2
-  Version: 0.6.0
+  Version: 0.9.0
   Authors@R: c(
           person("Eric", "Nantz", email = "theRcast@gmail.com", role = c("aut", "cre")),
           person("Yilong", "Zhang", role = c("aut")),
@@ -122,6 +122,7 @@ Content:
   export(set_data_path)
   export(tooltip_text)
   import(Tplyr)
+  import(dplyr)
   import(ggplot2)
   import(rtables)
   import(tippy)
@@ -177,11 +178,30 @@ Package: pilot2wrappers
 File: NEWS.md
 Format: text
 Content:
+  # pilot2wrappers 0.9.0
+  
+  - Fix RMSE calculation in efficacy table to match result in Pilot 1
+  
+  # pilot2wrappers 0.8.0
+  
+  - Switch to `adlbc` as source for visit completion to remain consistent with efficacy analysis
+  - Fix incorrect sample sizes for baseline visit in primary analysis table
+  - Fix misc typos for ADRG
+  
+  # pilot2wrappers 0.7.0
+  
+  - Include analysis model specification as a footnote in the efficacy table (#55)
+  - Add new frequency table of visit completion by treatment group (#53)
+  - Revise title for efficacy table (#52)
+  - Fix incorrect header order for primary table (#51)
+  - Ensure decimal places for rounding numeric results in demographics table is consistent with Pilot 1 programming (#54)
+  
   # pilot2wrappers 0.6.0
   
   - Remove Teal filters for every module except KM-plot to address FDA reviewer feedback
   - Increase risk table and plot label font sizes
   - Add bootstrap alert box with subgroup disclaimer in KM-plot module
+  
   # pilot2wrappers 0.5.0
   
   - Hide p-values when a data filter is applied, and display only when no filters are applied. This addresses comments from FDA reviewers after they saw a preview of the application.
@@ -260,9 +280,6 @@ Content:
   
   This application is intended for a pilot submission to the FDA composing of a Shiny application, as part of the [R Submissions Working Group](https://rconsortium.github.io/submissions-wg/) Pilot 2. The data sets and results displayed in the application originate from the [Pilot 1 project](https://rconsortium.github.io/submissions-wg/pilot-overall.html#pilot-1---common-analyses). Below is a brief description of the rest of the application:
   
-  ## Note on Dynamic Filters
-  
-  This application enables dynamic filtering of the input datasets used in the Kaplan-Meier (KM) Plot module for TTDE. When one or more filters are applied, the statistical estimates displayed in the visualization will dynamically update. Any statistical analyses utilizing subgroups of the original data sets are deemed **exploratory** and not pre-specified.
   ### Demographic Table
   
   In this interface, summary statistics associated with baseline clinical characteristics and other demographic factors is shown.
@@ -278,6 +295,10 @@ Content:
   ### Efficacy Table
   
   A summary table of an additional efficacy analysis is shown for baseline and week 20. The efficacy variable (Glucose) was analzying using ANCOVA model with treatment and baseline value as covariates, comparing Placebo to Xanomeline High Dose.
+  
+  ### Visit Completion
+  
+  A summary table of the number of patients remaining in the treatment period for each scheduled visit from baseline to week 24.
 
 Package: pilot2wrappers
 File: inst/golem-config.yml
@@ -285,7 +306,7 @@ Format: text
 Content:
   default:
     golem_name: pilot2wrappers
-    golem_version: 0.6.0
+    golem_version: 0.9.0
     app_prod: no
     adam_path: "datasets/adam"
   production:
@@ -501,8 +522,7 @@ Content:
     adtte <- haven::read_xpt(file.path(adam_path, "adtte.xpt")) %>%
       dplyr::filter(PARAMCD == "TTDE")
     adlb <- haven::read_xpt(file.path(adam_path, "adlbc.xpt")) %>%
-      subset(TRTPN %in% c(0, 81) & PARAMCD == "GLUC" & !is.na(AVISITN)) %>%
-      dplyr::mutate(TRTPN = ifelse(TRTPN == 0, 99, TRTPN)) # change treatment order for pairwise comparison
+      filter(PARAMCD == "GLUC" & !is.na(AVISITN))
     
     app <- teal::init(
       data = teal.data::cdisc_data(
@@ -542,6 +562,12 @@ Content:
           label = "Efficacy Table",
           ui = ui_t_efficacy,
           server = srv_t_efficacy,
+          filters = NULL
+        ),
+        module(
+          label = "Visit Completion Table",
+          ui = ui_t_disposition,
+          server = srv_t_disposition,
           filters = NULL
         )
         
@@ -1093,7 +1119,7 @@ Content:
     ns <- NS(id)
     tagList(
       shinyWidgets::alert(
-        tagList(tags$b("Important Information:"), tags$p("The analyses performed when utilizing subgroups or other subsets of the source data sets are considered ", tags$b("exploratory."), tags$p("Refer to the Application Information tab for additional details."))),
+        tagList(tags$b("Important Information:"), tags$p("The analyses performed when utilizing subgroups or other subsets of the source data sets are considered ", tags$b("exploratory."))),
         status = "info",
         dismissible = TRUE
       ),
@@ -1229,7 +1255,7 @@ Content:
                "Mean (SD)" = c(mean(x), sd(x)),
                "Median" = median(x),
                "Min - Max" = range(x),
-               .formats = c("xx.x (xx.x)", "xx.xx", "xx.xx - xx.xx")
+               .formats = c("xx.xx (xx.xx)", "xx.xx", "xx.xx - xx.xx")
              )
            } else if (is.factor(x) || is.character(x)) {
              in_rows(.list = list_wrap_x(table)(x))
@@ -1244,6 +1270,98 @@ Content:
      })
      
    }
+
+Package: pilot2wrappers
+File: R/tm_t_disposition.R
+Format: text
+Content:
+  #' ui_t_disposition UI Function
+  #'
+  #' @description A shiny Module.
+  #'
+  #' @param id,input,output,session Internal parameters for {shiny}.
+  #'
+  #' @noRd 
+  #'
+  #' @importFrom shiny NS tagList uiOutput
+  ui_t_disposition <- function(id, datasets) {
+    ns <- NS(id)
+    tagList(
+      uiOutput(ns("table")),
+      p("Table is based on participants within the ITT population")
+    )
+  }
+  
+  #' srv_t_primary Server Functions
+  #'
+  #' @noRd
+  #' @importFrom shiny renderUI
+  #' @import Tplyr
+  #' @import dplyr
+  srv_t_disposition <- function(input, output, session, datasets) {
+    output$table <- renderUI({
+      ADSL_FILTERED <- datasets$get_data("ADSL", filtered = TRUE)
+      ADLB_FILTERED <- datasets$get_data("ADLB", filtered = TRUE)
+      adsl <- ADSL_FILTERED
+      adlbc <- ADLB_FILTERED
+      
+      # use adlbc data set to remain consistent with efficacy table input data
+      visit_df <- adlbc %>%
+        filter(PARAMCD == "GLUC") %>% 
+        filter(AVISITN != 98) %>%
+        filter(!is.na(AVISITN)) %>%
+        select(USUBJID, AVISITN) %>%
+        distinct() %>%
+        left_join(
+          select(adsl, USUBJID, TRT01P),
+          by = "USUBJID"
+        )
+      
+      # visit number and week lookup
+      v_week_df <- tibble::tibble(
+        AVISITN = c(0, 2, 4, 6, 8, 12, 16, 20, 24, 26, 99),
+        VISIT = c("Baseline ", paste("Week", c(2, 4, 6, 8, 12, 16, 20, 24, 26)), "End of Treatment")
+      )%>%
+        mutate(VISIT = factor(VISIT, levels = c("Baseline ", paste("Week", c(2, 4, 6, 8, 12, 16, 20, 24, 26)), "End of Treatment")))
+      
+      # build Tplyr table
+      t_visit <- visit_df %>%
+        left_join(v_week_df, by = "AVISITN") %>%
+        tplyr_table(TRT01P) %>%
+        set_pop_data(adsl) %>%
+        set_pop_treat_var(TRT01P) %>%
+        add_total_group() %>%
+        add_layer(
+          group_count(VISIT) %>%
+          set_distinct_by(USUBJID) %>%
+          set_format_strings(
+            f_str('xx (xx%)', distinct_n, distinct_pct)
+          )
+        )
+  
+      b_t_visit <- t_visit %>%
+        build() %>%
+        dplyr::select(row_label1, var1_Placebo, `var1_Xanomeline High Dose`, `var1_Xanomeline Low Dose`, var1_Total) %>%
+        add_column_headers(
+          paste0("|Placebo</br>(N=**Placebo**)",
+                 "| Xanomeline High Dose</br>(N=**Xanomeline High Dose**) ",
+                 "| Xanomeline Low Dose</br>(N=**Xanomeline Low Dose**) ",
+                 "| Total</br>(N=**Total**) "),
+          header_n(t_visit)
+        )
+  
+      ht <- huxtable::as_hux(b_t_visit, add_colnames = FALSE) %>%
+        huxtable::set_bold(1, 1:ncol(b_t_visit), TRUE) %>%
+        huxtable::set_align(1, 1:ncol(b_t_visit), 'center') %>%
+        huxtable::set_valign(1, 1:ncol(b_t_visit), 'bottom') %>%
+        huxtable::set_bottom_border(1, 1:ncol(b_t_visit), 1) %>%
+        huxtable::set_width(0.9) %>%
+        huxtable::set_escape_contents(FALSE) %>%
+        huxtable::set_col_width(c(.5, 1/8, 1/8, 1/8, 1/8))
+      htmltools::HTML(huxtable::to_html(ht))
+    })
+  
+  }
 
 Package: pilot2wrappers
 File: R/tm_t_efficacy.R
@@ -1270,7 +1388,6 @@ Content:
         tippy::tippy(
           h4("Primary Endpoint Analysis: Glucose (mmol/L) - Summary at Week 20 LOCF"),
           tooltip = tooltip_text("Table is based on participants who have observable data at Baseline and Week 20", 16),
-          #tooltip = "<span style='font-size:18px;'>Table is based on participants who have observable data at Baseline and Week 20<span>",
           allowHTML = TRUE
         ),
         tags$br(),tags$br(),
@@ -1301,7 +1418,8 @@ Content:
       tags$hr(),
       fluidRow(
         h6(tags$i("Abbreviations: CI=Confidence Interval; LS=Least Squares; SD=Standard Deviation")),
-        h6(tags$p("Statistical model and comparison p-values removed when applying data filters. Refer to the application information for additional details."))
+        h6(tags$p("Table is based on participants who had observable data at Baseline and Week 20")),
+        h6(tags$p("Based on an Analysis of Covariance (ANCOVA) model with treatment and baseline value as covariates"))
       )
     )
   }
@@ -1311,22 +1429,42 @@ Content:
   #' @noRd
   #' @importFrom shiny reactive 
   #' @importFrom reactable reactable renderReactable colGroup colDef
-  #' @importFrom dplyr filter group_by summarise mutate select n
+  #' @importFrom dplyr filter group_by summarise mutate select n filter
   srv_t_efficacy <- function(input, output, session, datasets) {
     efficacy_results <- reactive({
+      adsl <- datasets$get_data("ADSL", filtered = TRUE)
+      
+      itt <- adsl %>%
+        filter(ITTFL == "Y") %>%
+        select("STUDYID", "USUBJID")
+      
       adlb <- datasets$get_data("ADLB", filtered = TRUE)
-      gluc_lmfit <- adlb %>%
+      
+      # prepare labs data for pairwise comparison
+      adlb1 <- adlb %>%
+        right_join(itt, by = c("STUDYID", "USUBJID")) %>%
+        filter(TRTPN %in% c(0, 81), PARAMCD == "GLUC", !is.na(AVISITN)) %>%
+        mutate(TRTPN = ifelse(TRTPN == 0, 99, TRTPN)) 
+      
+      gluc_lmfit <- adlb1 %>%
         filter(AVISITN == 20) %>%
         lm(CHG ~ BASE + TRTPN, data = .)
       
-      ## Raw summary statistics
-      t11 <- adlb %>%
-        filter(AVISITN == 20) %>%
+      t10 <- adlb1 %>%
+        filter(AVISITN == 0) %>%
         group_by(TRTPN, TRTP) %>%
         summarise(
           N = n(),
           mean_bl = mean(BASE),
-          sd_bl = sd(BASE),
+          sd_bl = sd(BASE)
+        )
+      
+      ## Raw summary statistics
+      t11 <- adlb1 %>%
+        filter(AVISITN == 20, !is.na(CHG), !is.na(BASE)) %>%
+        group_by(TRTPN, TRTP) %>%
+        summarise(
+          N_20 = n(),
           mean_chg = mean(CHG),
           sd_chg = sd(CHG),
           mean = mean(AVAL),
@@ -1337,15 +1475,16 @@ Content:
       t12 <- emmeans::emmeans(gluc_lmfit, "TRTPN")
       
       ## Merge and format data for reporting
-      apr0ancova1 <- merge(t11, t12) %>%
+      apr0ancova1 <- merge(t10, t11) %>%
+        merge(t12) %>%
         mutate(emmean_sd = SE * sqrt(df)) %>%
         mutate(
-          Trt = c("Study Drug", "Placebo"),
+          Trt = c("Xanomeline High Dose", "Placebo"),
           N1 = N,
           Mean1 = fmt_est(mean_bl, sd_bl),
-          N2 = N,
+          N2 = N_20,
           Mean2 = fmt_est(mean, sd),
-          N3 = N,
+          N3 = N_20,
           Mean3 = fmt_est(mean_chg, sd_chg),
           CI = fmt_ci(emmean, lower.CL, upper.CL)
         ) %>%
@@ -1372,7 +1511,7 @@ Content:
       ### Calculate root mean square and save data in output folder
       apr0ancova3 <- data.frame(rmse = paste0(
         "Root Mean Squared Error of Change = ",
-        formatC(sd(gluc_lmfit$residuals), digits = 2, format = "f", flag = "0")
+        formatC(sqrt(mean((gluc_lmfit$residuals)^2)), digits = 2, format = "f", flag = "0")
       ))
       list(
         apr0ancova1 = apr0ancova1,
@@ -1486,8 +1625,8 @@ Content:
         nest_rowlabels() %>%
         dplyr::select(-starts_with('ord')) %>%
         add_column_headers(
-          paste0("|Placebo</br>(N=**Placebo**)| Xanomeline Low Dose</br>(N=**Xanomeline Low Dose**) ",
-                 "| Xanomeline High Dose</br>(N=**Xanomeline High Dose**)"),
+          paste0("|Placebo</br>(N=**Placebo**)| Xanomeline High Dose</br>(N=**Xanomeline High Dose**) ",
+                 "| Xanomeline Low Dose</br>(N=**Xanomeline Low Dose**)"),
           header_n(t)
         )
   
