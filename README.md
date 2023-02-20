@@ -1,4 +1,4 @@
-> Do not includ `README.md` and `.gitignore` files into the final submission. 
+> Do not include `README.md` and `.gitignore` files into the final submission. 
 
 ## Overview
 
