@@ -42,6 +42,7 @@ Package: pilot2wrappers
 File: .Rprofile
 Format: text
 Content:
+  options("renv.config.mran.enabled" = FALSE)
   source("renv/activate.R")
 
 Package: pilot2wrappers
@@ -189,10 +190,13 @@ Content:
   # pilot2wrappers 0.10.0
   
   - Add usage guide for application (#61)
-  - Remove treatment variables from the `adtte` set prior to generating filters in KM plot module (#60)
-  - Ensure data filters within the KM-Plot module are only applied to data sets inside that module, and not on the remaining modules (#59)
-  * Add specific notes regarding filter usage and overlapping variables inside the KM module per user feedback
-  * Fix typos in ADRG Quarto document
+  - Remove treatment variables from the `adtte` set prior to generating filters in KM plot module (#60).
+  - Ensure data filters within the KM-Plot module are only applied to data sets inside that module, and not on the remaining modules (#59).
+  - Ensure inference p-values are still displayed within primary and efficacy tables after applying filters in KM-Plot module.
+  - Add specific notes regarding filter usage and overlapping variables inside the KM module per user feedback.
+  - Display a message to the user when filtered data does not contain enough observations for survival probabilities and confidence intervals in the KM-Plot module. A note in the ADRG has also been added for this situation.
+  - Add note in ADRG regarding warning messages when restoring the `teal` and `teal.data` packages after the `renv` package library completes installation.
+  - Correct typos in ADRG Quarto document.
   
   # pilot2wrappers 0.9.0
   
@@ -292,27 +296,27 @@ Package: pilot2wrappers
 File: inst/app/docs/about.md
 Format: text
 Content:
-  # Introduction
+  ## Introduction
   
   This application is intended for a pilot submission to the FDA composing of a Shiny application, as part of the [R Submissions Working Group](https://rconsortium.github.io/submissions-wg/) Pilot 2. The data sets and results displayed in the application originate from the [Pilot 1 project](https://rconsortium.github.io/submissions-wg/pilot-overall.html#pilot-1---common-analyses). Visit the **Usage Guide** for information on using the application. Below is a brief description of the application components:
   
-  ### Demographic Table
+  ### Table 14-2.01 Summary of Demographic and Baseline Characteristics
   
   In this interface, summary statistics associated with baseline clinical characteristics and other demographic factors is shown.
   
-  ### KM-Plot for TTDE
+  ### Figure 14-1 Time to Dermatologic Event by Treatment Group
   
   A Kaplan-Meier (KM) plot of the Time to First Dermatologic Event (TTDE) with strata defined by treatment group is displayed along with an informative risk set table across time.
   
-  ### Primary Table
+  ### Table 14-3.01 Primary Endpoint Analysis: ADAS Cog (11) - Change from Baseline to Week 24 - LOCF
   
   A summary table of the primary efficacy analysis is shown for each of the time points of assessment (baseline and week 24) comparing each treatment group. The primary efficacy variable (change from baseline in ADAS Cog (11)) was analyzed using an Analysis of Covariance (ANCOVA) model with treatment and baseline value as covariates, comparing Placebo to Xanomeline High Dose.
   
-  ### Efficacy Table
+  ### Table 14-3.02 Primary Endpoint Analysis: Glucose (mmol/L) - Summary at Week 20 - LOCF
   
   A summary table of an additional efficacy analysis is shown for baseline and week 20. The efficacy variable (Glucose) was analzying using ANCOVA model with treatment and baseline value as covariates, comparing Placebo to Xanomeline High Dose.
   
-  ### Visit Completion
+  ### Table 14-4.01 Visit Completion
   
   A summary table of the number of patients remaining in the treatment period for each scheduled visit from baseline to week 24.
 
@@ -9712,6 +9716,8 @@ Content:
         status = "info",
         dismissible = TRUE
       ),
+      h4("Figure 14-1"),
+      h4("Time to Dermatologic Event by Treatment Group"),
       plotOutput(ns("plot"), height = "800px")
     )
   }
@@ -9741,7 +9747,10 @@ Content:
           TRT01A = factor(TRT01A, levels = c("Placebo", "Xanomeline Low Dose",  "Xanomeline High Dose")),
           AVAL = AVAL/30.4167
         )
-      
+      # detect the error
+      shiny::validate(
+        shiny::need(nrow(anl) > 5, "Not enough observations for this selection. Modify filters and try again.")
+      )
        
       ## -----------------------------------------------------------------------------------------------------------------------------------
       # estimate survival
@@ -9932,7 +9941,11 @@ Content:
   #' @importFrom stats median sd
    ui_t_demographic <- function(id, datasets) {
      ns <- NS(id)
-     uiOutput(ns("table"))
+     tagList(
+      h4("Table 14-2.01"),
+      h4("Summary of Demographic and Baseline Characteristics"),
+      uiOutput(ns("table"))
+     )
    }
    
    #' srv_t_demographic Server Functions
@@ -9950,9 +9963,9 @@ Content:
        labels["AGEGR1"] <- "Age group"
        labels["AGE"] <- "Age (year)"
        labels["RACE"] <- "Race"
-       lyt <- basic_table(title = "Protocol: CDISCPILOT01",
-                          subtitles = "Population: Intent-to-Treat",
-                          main_footer = paste0(Sys.time())
+       lyt <- basic_table(title = "",
+                          subtitles = character(),
+                          main_footer = paste("Program: tm_t_demographic.R", Sys.time())
        ) %>%
          split_cols_by("TRT01P") %>%
          add_colcounts() %>%
@@ -9994,6 +10007,8 @@ Content:
   ui_t_disposition <- function(id, datasets) {
     ns <- NS(id)
     tagList(
+      h4("Table 14-4.01"),
+      h4("Visit Completion"),
       uiOutput(ns("table")),
       p("Table is based on participants within the ITT population")
     )
@@ -10092,14 +10107,19 @@ Content:
       tags$br(),
       tags$br(),
       fluidRow(
-        tippy::tippy(
-          h4("Primary Endpoint Analysis: Glucose (mmol/L) - Summary at Week 20 LOCF"),
-          tooltip = tooltip_text("Table is based on participants who have observable data at Baseline and Week 20", 16),
-          allowHTML = TRUE
-        ),
+        h4("Table 14-3.02"),
+        h4("Primary Endpoint Analysis: Glucose (mmol/L) - Summary at Week 20 LOCF"),
         tags$br(),tags$br(),
         column(
           width=10,
+          tippy::tippy(
+            tags$div(
+              align = "center",
+              h4("ANCOVA of Change from Baseline at Week 20")
+            ),
+            tooltip = tooltip_text("Table is based on participants who have observable data at Baseline and Week 20", 16),
+            allowHTML = TRUE
+          ),
           reactable::reactableOutput(ns("tbl_efficacy_1"))
         ) 
       ),
@@ -10109,7 +10129,10 @@ Content:
       tags$hr(),
       fluidRow(
         tippy::tippy(
-          h4("Pairwise Comparison"),
+          tags$div(
+            align = "center",
+            h4("Pairwise Comparison")
+          ),
           tooltip = tooltip_text("Inference in this table is based on a Analysis of Covariance (ANCOVA) model with treatment and baseline value as covariates.", 16),
           allowHTML = TRUE
         ),
@@ -10210,7 +10233,7 @@ Content:
         mutate(
           comp = "Study Drug vs. Placebo",
           mean = fmt_ci(estimate, lower, upper),
-          p = ifelse(filter_active(datasets), "Not Applicable", fmt_pval(p.value))
+          p = fmt_pval(p.value)
         ) %>%
         select(comp:p)
       
@@ -10287,6 +10310,8 @@ Content:
   ui_t_primary <- function(id, datasets) {
     ns <- NS(id)
     tagList(
+      h4("Table 14-3.01"),
+      h4("Primary Endpoint Analysis: ADAS Cog(11) - Change from Baseline to Week 24 - LOCF"),
       uiOutput(ns("table")),
       p("Statistical model and comparison p-values removed when applying data filters. Refer to the application information for additional details."),
       p("[1] Based on Analysis of covariance (ANCOVA) model with treatment and site group as factors and baseline value as a covariate."),
@@ -10339,7 +10364,7 @@ Content:
   
   
       ## -----------------------------------------------------------------------------------------------------------------------------------
-      model_portion <- efficacy_models(adas, 'CHG', 24, !filter_active(datasets))
+      model_portion <- efficacy_models(adas, var = 'CHG', wk = 24, show_pvalue = TRUE)
   
   
       ## -----------------------------------------------------------------------------------------------------------------------------------
