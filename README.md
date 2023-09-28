@@ -22,6 +22,8 @@ To learn more about other pilots, visit [the R consortium R submission working g
 
   + version: [v0.1.0](https://github.com/RConsortium/submissions-pilot2-to-fda/releases/tag/v0.1.0)
   + [Cover letter](https://github.com/RConsortium/submissions-pilot2-to-fda/blob/main/m1/us/cover-letter.pdf)
+ 
+- [FDA response letter](https://github.com/RConsortium/submissions-wg/blob/0f1dc5c30985d413f75d196c2b6caa96231b26ee/_Documents/Summary_R_Pilot2_Submission%2027SEP2023.pdf)
 
   
 ## Run Shiny Application
